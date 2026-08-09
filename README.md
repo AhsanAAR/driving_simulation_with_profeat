@@ -1,7 +1,9 @@
 # Autonomous Driving Simulation with ProFeat
 This project contains a ProFeat model that allows probabilistic model checking of a self-driving car scenario over a range of factors
+
 - car.pm contains the pure PRISM model that the ProFeat model is based on.
 - script.py contains a results consolidation script that compiles the results from one run of ProFeat into one csv table.
+- props.props contains the property specifications that look at the minimum probability of crashing for the first 100 time-steps stepped by 10, along with a sanity check that tries to crash the car within 10 steps.
 - model.profeat contains the ProFeat model.
 
 ## Prerequisites / Setup
