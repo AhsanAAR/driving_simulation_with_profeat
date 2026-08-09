@@ -1,0 +1,88 @@
+mdp
+
+const int NUM_LANES = 2;
+const int LEFT_BOUNDARY  = -1*NUM_LANES;
+const int RIGHT_BOUNDARY = NUM_LANES;
+const double prob_distribution = 1/((NUM_LANES*2)+1);
+const int HORIZON = 2;
+const double P_RESPAWN = 0.5;
+
+const int NUM_OBS = 1;
+const int NUM_DRIVERS = 1;
+
+root feature
+    all of Car, Obstacles;
+    rewards "steps"
+        [move]  true : 1;
+    endrewards
+endfeature
+
+feature Car
+    modules car_module;
+endfeature
+
+feature Obstacles
+    all of Obstacle[NUM_OBS], Driver[NUM_DRIVERS];
+endfeature
+
+feature Obstacle
+    modules obstacle_module(false);
+endfeature
+
+feature Driver
+    modules obstacle_module(true);
+endfeature
+
+module car_module
+    x : [LEFT_BOUNDARY..RIGHT_BOUNDARY] init 0;
+
+    [move]  x > LEFT_BOUNDARY  -> (x' = x - 1);
+    [move]	x < RIGHT_BOUNDARY -> (x' = x + 1);
+    [move]	true -> (x' = x);
+endmodule
+
+module obstacle_module(movement)
+    obs_x : [LEFT_BOUNDARY..RIGHT_BOUNDARY] init 0;
+    obs_y : [-1..HORIZON] init -1;
+
+        [] obs_y = HORIZON -> 
+        prob_distribution : (obs_x' = -2)  & (obs_y' = obs_y - 1) +
+        prob_distribution : (obs_x' = -1)  & (obs_y' = obs_y - 1) +
+        prob_distribution : (obs_x' =  0)  & (obs_y' = obs_y - 1) +
+        prob_distribution : (obs_x' =  1)  & (obs_y' = obs_y - 1) +
+        prob_distribution : (obs_x' =  2)  & (obs_y' = obs_y - 1);
+
+        [move]  	obs_y = -1 -> (1-P_RESPAWN) : (obs_y' = obs_y) + (P_RESPAWN) : (obs_y' = HORIZON);
+
+        [move]  	obs_y >= 0 & !movement & obs_y < HORIZON -> (obs_y' = obs_y - 1);
+
+        [move] obs_y >= 0 & movement & obs_y < HORIZON & obs_x > LEFT_BOUNDARY & obs_x < RIGHT_BOUNDARY ->
+            1/3 : (obs_x' = obs_x - 1) & (obs_y' = obs_y - 1) +
+            1/3 : (obs_x' = obs_x)     & (obs_y' = obs_y - 1) +
+            1/3 : (obs_x' = obs_x + 1) & (obs_y' = obs_y - 1);
+
+        [move] obs_y >= 0 & movement & obs_y < HORIZON & obs_x = LEFT_BOUNDARY ->
+            1/2 : (obs_x' = obs_x)     & (obs_y' = obs_y - 1) +
+            1/2 : (obs_x' = obs_x + 1) & (obs_y' = obs_y - 1);
+
+        [move] obs_y >= 0 & movement & obs_y < HORIZON & obs_x = RIGHT_BOUNDARY ->
+            1/2 : (obs_x' = obs_x - 1) & (obs_y' = obs_y - 1) +
+            1/2 : (obs_x' = obs_x)     & (obs_y' = obs_y - 1);
+
+endmodule
+
+// formula obstacle_id(module_id, movement) = movement ? module_id+NUM_OBS : module_id;
+
+label "crashed" =
+    for i in [0..NUM_OBS-1]
+        (active(Obstacle[i]) &
+         Obstacle[i].obs_y = 0 &
+         Car.x = Obstacle[i].obs_x) | ...
+    endfor
+    | 
+    for j in [0..NUM_DRIVERS-1]
+        (active(Driver[j]) &
+         Driver[j].obs_y = 0 &
+         Car.x = Driver[j].obs_x) | ...
+    endfor
+    | false;
